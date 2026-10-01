@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekonsiliasi Dashboard – PIC Kiki</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen py-6 px-4 font-sans">
+
+    <div class="max-w-7xl mx-auto">
+
+        <!-- Top App Bar -->
+        <div class="mb-6 flex flex-col sm:flex-row justify-between items-center border-b border-gray-800 pb-4 gap-2">
+            <div>
+                <h1 class="text-2xl font-bold text-indigo-400 tracking-wide flex items-center gap-2">
+                    🔄 REKONSILIASI DASHBOARD
+                </h1>
+                <p class="text-gray-400 text-xs mt-0.5">PIC Kiki · Area → Mitra → Kawasan. Setiap kawasan punya checklist dan timeline sendiri.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="global-summary" class="text-xs bg-indigo-950/50 text-indigo-300 border border-indigo-900 px-3 py-1.5 rounded-full"></span>
+                <span class="text-xs bg-gray-800 text-gray-400 border border-gray-700 px-3 py-1.5 rounded-full shadow-inner">🔒 Data Private & Locally Saved</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+
+            <!-- LEFT PANEL -->
+            <div class="w-full md:w-96 shrink-0 flex flex-col gap-4">
+
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-xl">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300 mb-3">Tambah Mitra</h2>
+                    <form id="partner-form" class="flex flex-col gap-2">
+                        <input type="text" id="partner-input" placeholder="Nama mitra, mis. PT Contoh Mitra"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white placeholder-gray-500" required>
+                        <div class="flex gap-2">
+                            <select id="partner-area" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                                <option value="JABAR">JABAR</option>
+                                <option value="JABO">JABO</option>
+                            </select>
+                            <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm py-2 rounded-lg transition duration-200">+ Tambah Mitra</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-xl flex-1 flex flex-col min-h-[300px]">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Mitra &amp; Kawasan</h2>
+                        <div class="flex gap-1">
+                            <button onclick="setAllExpanded(true)" class="text-[10px] text-gray-400 hover:text-white border border-gray-700 rounded px-2 py-0.5">Buka semua</button>
+                            <button onclick="setAllExpanded(false)" class="text-[10px] text-gray-400 hover:text-white border border-gray-700 rounded px-2 py-0.5">Tutup</button>
+                        </div>
+                    </div>
+                    <div id="partner-list" class="overflow-y-auto max-h-[72vh] flex-1 pr-1"></div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL -->
+            <div id="workspace-panel" class="flex-1 min-w-0 flex flex-col gap-4"></div>
+        </div>
+    </div>
+
+    <!-- Stage Editor Modal -->
+    <div id="stage-modal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onclick="if(event.target===this)closeStageEditor()">
+        <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-md p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Edit Tahap</h3>
+                <div class="flex gap-1">
+                    <button onclick="moveStage(-1)" title="Geser ke kiri" class="text-xs border border-gray-600 text-gray-300 hover:bg-gray-700 px-2 py-1 rounded">◀</button>
+                    <button onclick="moveStage(1)" title="Geser ke kanan" class="text-xs border border-gray-600 text-gray-300 hover:bg-gray-700 px-2 py-1 rounded">▶</button>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[11px] text-gray-400 uppercase">Pihak / Actor</label>
+                    <input id="stg-actor" type="text" class="w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="text-[11px] text-gray-400 uppercase">Nama Tahap</label>
+                    <input id="stg-name" type="text" class="w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="text-[11px] text-gray-400 uppercase">Status</label>
+                    <select id="stg-status" class="w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <option value="pending">Pending (abu-abu)</option>
+                        <option value="done">Selesai (hijau)</option>
+                        <option value="active">Dalam Proses (merah)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] text-gray-400 uppercase">Tanggal & Jam</label>
+                    <div class="flex gap-2 mt-1">
+                        <input id="stg-date" type="datetime-local" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" style="color-scheme:dark">
+                        <button onclick="setStageNow()" class="text-xs border border-gray-600 text-gray-300 hover:bg-gray-700 px-2 rounded-lg">Sekarang</button>
+                        <button onclick="clearStageDate()" class="text-xs border border-gray-600 text-gray-300 hover:bg-gray-700 px-2 rounded-lg">Kosongkan</button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-between mt-5">
+                <button onclick="deleteStage()" class="text-xs text-rose-400 hover:bg-rose-950/40 border border-rose-900 px-3 py-2 rounded-lg">Hapus Tahap</button>
+                <div class="flex gap-2">
+                    <button onclick="closeStageEditor()" class="text-xs border border-gray-600 text-gray-300 hover:bg-gray-700 px-4 py-2 rounded-lg">Batal</button>
+                    <button onclick="saveStage()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Core baseline: template checklist per kawasan
+        function generateDefaultTasks() {
+            return [
+                { id: 1, text: "Meminta LIS PSB ke MITRA", completed: false, isDefault: true },
+                { id: 2, text: "Mengumpulkan & Merge LIS PSB di Group", completed: false, isDefault: true },
+                { id: 3, text: "Menunggu Data Whitelist & Master Data dari TSEL", completed: false, isDefault: true },
+                { id: 4, text: "Cek Status PKS (AKTIF / MATI)", completed: false, isDefault: true },
+                { id: 5, text: "Lakukan Rekon Billing Berjalan (Jika PKS AKTIF)", completed: false, isDefault: true },
+                { id: 6, text: "Buat Berkas Acara (BAST, BANPK, BAR)", completed: false, isDefault: true },
+                { id: 7, text: "Kirim Rekonsiliasi & BA ke MITRA", completed: false, isDefault: true },
+                { id: 8, text: "Waiting Approval Mitra (Lakukan Revisi jika perlu)", completed: false, isDefault: true },
+                { id: 9, text: "Mitra mengeluarkan Surat Permohonan Pembayaran, Invoice, Kwitansi, Faktur Pajak, & BA 2 Rangkap Bermaterai", completed: false, isDefault: true },
+                { id: 10, text: "[OPTIONAL] Meminta Soft File Berkas untuk Mempercepat Proses Penginputan ke MYDX", completed: false, isDefault: true },
+                { id: 11, text: "Menerima Berkas dari Mitra & Lakukan Pengecekan Ulang", completed: false, isDefault: true },
+                { id: 12, text: "Create Evidence", completed: false, isDefault: true },
+                { id: 13, text: "Ajukan Akru", completed: false, isDefault: true },
+                { id: 14, text: "↳ [KONDISI A] Jika Periode Billing ≤ Januari 2026 → Maka Ajukan Akru", completed: false, isDefault: true },
+                { id: 15, text: "↳ [KONDISI B] Jika Periode Billing > Januari 2026 → Ajukan Reverse Akru (Februari 2026)", completed: false, isDefault: true },
+                { id: 16, text: "Bubuhkan Materai di Sisi TIF", completed: false, isDefault: true },
+                { id: 17, text: "Lakukan Windigital dan PERURI (UBIS)", completed: false, isDefault: true },
+                { id: 18, text: "Upload Berkas Approved Windigital dan PERURI ke DSV (Digital Sign Verification)", completed: false, isDefault: true },
+                { id: 19, text: "Upload MYDX", completed: false, isDefault: true }
+            ];
+        }
+
+
+        // ===== TIMELINE (progress bar bertahap yang bisa diedit) =====
+        const STAGE_STATUS = {
+            done:    { color: '#4ade80', label: 'Selesai' },
+            pending: { color: '#9ca3af', label: 'Pending' },
+            active:  { color: '#ef4444', label: 'Dalam Proses' }
+        };
+        const STAGE_ORDER = ['pending', 'done', 'active'];
+
+        function generateDefaultTimeline(sample) {
+            const base = [
+                ['UBIS / UFL', 'Transaction Request'],
+                ['UBIS / UFL', 'Hardcopy Submission'],
+                ['AGENT DOKUMENTASI', 'Checking'],
+                ['UBIS / UFL', 'Digital Sign Verification'],
+                ['APPROVAL UBIS/UFL', 'Approval UBIS'],
+                ['AGENT TRANSAKSI', 'Verification'],
+                ['FINANCE', 'Surety Bond Confirmation'],
+                ['AGENT TRANSAKSI', 'Journal'],
+                ['AGENT TRANSAKSI', 'SPB'],
+                ['FINANCE', 'Review Journal dan SPB'],
+                ['FINANCE', 'Approval Process 1'],
+                ['FINANCE', 'Approval Process 2'],
+                ['AGENT DOKUMENTASI', 'Document Preparation']
+            ];
+            // contoh data (sesuai gambar): status & tanggal
+            const demo = {
+                0: ['done', '2026-09-17T11:41'], 3: ['done', '2026-09-17T17:19'],
+                4: ['done', '2026-09-23T14:37'], 5: ['done', '2026-09-27T20:39'],
+                7: ['done', '2026-09-28T08:55'], 8: ['done', '2026-10-01T09:31'],
+                9: ['active', ''], 10: ['active', ''], 11: ['active', ''], 12: ['active', '']
+            };
+            return base.map((b, i) => ({
+                id: uid(),
+                actor: b[0],
+                name: b[1],
+                status: sample && demo[i] ? demo[i][0] : 'pending',
+                date: sample && demo[i] ? demo[i][1] : ''
+            }));
+        }
+
+        function formatStageDate(v) {
+            if (!v) return '';
+            const d = new Date(v);
+            if (isNaN(d)) return '';
+            const M = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+            const pad = n => String(n).padStart(2, '0');
+            return `${pad(d.getDate())}-${M[d.getMonth()]}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        function nowLocalISO() {
+            const d = new Date();
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().slice(0, 16);
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+
+        // ===== DATA: 34 kawasan PIC Kiki (sumber: Monitoring Rekon PPJAB TIF Area 2) =====
+        const SEED_MITRA = [
+            { name: 'PT AKSES PRIMA INDONESIA', area: 'JABAR', kawasan: [
+                'PERUMAHAN BANDUNG CITY LIGHT', 'PERUMAHAN MAHKOTA REGENCY', 'PERUMAHAN TAMAN KOPO KATAPANG' ] },
+            { name: 'KSO FORTUNA INDONESIA', area: 'JABO', kawasan: [
+                'APARTEMEN SIGNATURE PARK GRANDE TOWER THE LIGHT' ] },
+            { name: 'PT AKSES PRIMA INDONESIA', area: 'JABO', kawasan: [
+                'APARTEMEN GREEN LAKE SUNTER', 'APARTEMEN KALIBATA CITY', 'APARTEMEN MEDITERANIA GARDEN RESIDENCE 1',
+                'APARTEMEN MEDITERANIA GARDEN RESIDENCE 2', 'APARTEMEN SEASON CITY', 'KAWASAN DAMARA VILLAGE' ] },
+            { name: 'PT ARENAS ADI PERKASA', area: 'JABO', kawasan: [
+                'APARTEMEN GADING MEDITERANIA RESIDENCES' ] },
+            { name: 'PT ASIANET MEDIA TEKNOLOGY', area: 'JABO', kawasan: [
+                'APARTEMEN PERMATA EKSEKUTIF' ] },
+            { name: 'PT BRIDGE MEDIA INDONESIA', area: 'JABO', kawasan: [
+                'MENARA SAMAWA NUANSA PONDOK KELAPA' ] },
+            { name: 'PT CIPTAKOM MEDIA NUSA', area: 'JABO', kawasan: [
+                'APARTEMEN CITRA LIVING', 'CITRA GARDEN PURI SEMANAN', 'CITRA MAJA 2', 'CITRA SENTUL',
+                'CITRALAND CIBUBUR CLUSTER MONTEREY', 'KAWASAN APARTEMEN CIPUTRA INTERNASIONAL',
+                'KAWASAN APARTEMEN CITRALAKE SUITE', '(Nama kawasan belum diisi)' ] },
+            { name: 'PT CYBER TEKNOLOGI PUTRAWAN', area: 'JABO', kawasan: [
+                'APARTEMEN REGENT' ] },
+            { name: 'PT FAJAR MITRA KRIDA ABADI', area: 'JABO', kawasan: [
+                'APARTEMEN THAMRIN DISTRICT BEKASI', 'BRANZ MEGA KUNINGAN', 'CLUSTER WISTERIA KEPPEL LAND JAKARTA TIMUR',
+                'DISTRIK PURI (PURI MERAK, PURI KASUARI DAN PURI CENDRAWASIH)', 'PERUMAHAN SAMANEA HILL',
+                'THE ASPEN PEAK RESIDENCE TOWER C' ] },
+            { name: 'PT INFRA YES SOLUSINDO', area: 'JABO', kawasan: [
+                'APARTEMEN GREEN PRAMUKA CITY TOWER MAGNOLIA DAN NERINE',
+                'APARTEMEN GREEN PRAMUKA CITY TOWER ORCHID, PENELOPE, DAN SCARLET', 'MALL GREEN PRAMUKA' ] },
+            { name: 'PT JALA LINTAS MEDIA', area: 'JABO', kawasan: [
+                'APARTEMEN SOUTHGATE' ] },
+            { name: 'PT MULTITECH INFOMEDIA', area: 'JABO', kawasan: [
+                'KAWASAN APARTEMEN AKASA', 'SERPONG GREEN VIEW' ] }
+        ];
+        const AREA_ORDER = ['JABAR', 'JABO'];
+
+        let _uid = Date.now();
+        function uid() { return ++_uid; }
+
+        function newKawasan(name, tasks, timeline) {
+            return { id: uid(), name: name, tasks: tasks || generateDefaultTasks(), timeline: timeline || generateDefaultTimeline(false) };
+        }
+        function buildSeed() {
+            return SEED_MITRA.map(m => ({
+                id: uid(), name: m.name, area: m.area, expanded: false,
+                kawasan: m.kawasan.map(k => newKawasan(k))
+            }));
+        }
+
+        // Muat data. Jika belum ada data v2, isi dari PDF; data versi lama (selain contoh) ikut dipindahkan.
+        function loadMitra() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('rekon_v2_mitra'));
+                if (Array.isArray(saved) && saved.length) return saved;
+            } catch (e) {}
+            const seeded = buildSeed();
+            try {
+                const old = JSON.parse(localStorage.getItem('rekon_dashboard_projects')) || [];
+                old.filter(o => o.id !== 10001 && Array.isArray(o.tasks)).forEach(o => {
+                    seeded.push({
+                        id: uid(), name: o.name, area: 'LAINNYA', expanded: false,
+                        kawasan: [ newKawasan('Umum', o.tasks, Array.isArray(o.timeline) ? o.timeline : null) ]
+                    });
+                });
+            } catch (e) {}
+            return seeded;
+        }
+
+        let mitraList = loadMitra();
+        let activeKawasanId = (() => {
+            try { const v = JSON.parse(localStorage.getItem('rekon_v2_active')); if (v) return v; } catch (e) {}
+            return mitraList[0] && mitraList[0].kawasan[0] ? mitraList[0].kawasan[0].id : null;
+        })();
+
+        const partnerForm = document.getElementById('partner-form');
+        const partnerInput = document.getElementById('partner-input');
+        const partnerAreaEl = document.getElementById('partner-area');
+        const partnerListEl = document.getElementById('partner-list');
+        const workspacePanel = document.getElementById('workspace-panel');
+
+        function saveToStorage() {
+            localStorage.setItem('rekon_v2_mitra', JSON.stringify(mitraList));
+            localStorage.setItem('rekon_v2_active', JSON.stringify(activeKawasanId));
+        }
+
+        function findKawasan(id) {
+            for (const m of mitraList) {
+                const k = m.kawasan.find(x => x.id === id);
+                if (k) return { mitra: m, kw: k };
+            }
+            return null;
+        }
+        function activeKw() { const f = findKawasan(activeKawasanId); return f ? f.kw : null; }
+
+        // ===== PKS (tanggal aktif per kawasan, diisi manual) =====
+        function parseDateOnly(v) {
+            if (!v) return null;
+            const [y, m, d] = v.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+        function formatDateOnly(v) {
+            const d = parseDateOnly(v);
+            if (!d || isNaN(d)) return '';
+            const M = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+            return `${String(d.getDate()).padStart(2, '0')}-${M[d.getMonth()]}-${d.getFullYear()}`;
+        }
+        // Status PKS dari tanggal mulai / berakhir. Rekon hanya untuk status "aktif" atau "segera".
+        function pksStatus(kw) {
+            const start = parseDateOnly(kw.pksStart), end = parseDateOnly(kw.pksEnd);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            if (!start && !end) return { key: 'kosong', label: 'PKS belum diisi', cls: 'bg-gray-700/60 text-gray-400 border-gray-600', hint: '' };
+            if (start && start > today) return { key: 'belum', label: 'PKS belum mulai', cls: 'bg-sky-950 text-sky-300 border-sky-800', hint: 'Mulai ' + formatDateOnly(kw.pksStart) };
+            if (end && end < today) return { key: 'berakhir', label: 'PKS berakhir', cls: 'bg-rose-950 text-rose-300 border-rose-800', hint: 'Berakhir ' + formatDateOnly(kw.pksEnd) };
+            if (end) {
+                const days = Math.round((end - today) / 86400000);
+                if (days <= 30) return { key: 'segera', label: 'PKS segera berakhir', cls: 'bg-amber-950 text-amber-300 border-amber-800', hint: `Sisa ${days} hari (s.d. ${formatDateOnly(kw.pksEnd)})` };
+                return { key: 'aktif', label: 'PKS aktif', cls: 'bg-emerald-950 text-emerald-300 border-emerald-800', hint: `Sisa ${days} hari (s.d. ${formatDateOnly(kw.pksEnd)})` };
+            }
+            return { key: 'aktif', label: 'PKS aktif', cls: 'bg-emerald-950 text-emerald-300 border-emerald-800', hint: 'Sejak ' + formatDateOnly(kw.pksStart) };
+        }
+        function isPksAktif(kw) { const k = pksStatus(kw).key; return k === 'aktif' || k === 'segera'; }
+
+        // Progres checklist satu kawasan (ID 14 & 15 adalah alternatif, jadi penyebut dikurangi 1)
+        function calculateProgress(kw) {
+            const a = kw.tasks.find(t => t.id === 14);
+            const b = kw.tasks.find(t => t.id === 15);
+            let total = kw.tasks.length;
+            const completed = kw.tasks.filter(t => t.completed).length;
+            if (a && b) total -= 1;
+            if (total <= 0) return 0;
+            return Math.min(100, Math.round((completed / total) * 100));
+        }
+        function mitraStats(m) {
+            const n = m.kawasan.length;
+            if (!n) return { n: 0, done: 0, avg: 0 };
+            const ps = m.kawasan.map(calculateProgress);
+            return { n, done: ps.filter(p => p === 100).length, avg: Math.round(ps.reduce((x, y) => x + y, 0) / n) };
+        }
+
+        function renderSidebar() {
+            const areas = [...new Set(mitraList.map(m => m.area))].sort((a, b) => {
+                const ia = AREA_ORDER.indexOf(a), ib = AREA_ORDER.indexOf(b);
+                return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+            });
+            let html = '';
+            areas.forEach(area => {
+                const ms = mitraList.filter(m => m.area === area);
+                const nK = ms.reduce((t, m) => t + m.kawasan.length, 0);
+                html += `<div class="mt-3 first:mt-0 mb-1 text-[11px] font-semibold tracking-widest text-indigo-300 uppercase">${escapeHtml(area)} <span class="text-gray-500 font-normal normal-case tracking-normal">· ${ms.length} mitra · ${nK} kawasan</span></div>`;
+                ms.forEach(m => {
+                    const st = mitraStats(m);
+                    html += `
+                    <div class="mb-1.5">
+                        <div class="group flex items-center gap-2 p-2 rounded-lg bg-gray-900/40 border border-gray-700/60 hover:border-gray-600 cursor-pointer" onclick="toggleMitra(${m.id})">
+                            <span class="text-gray-500 text-xs w-3">${m.expanded ? '▼' : '▶'}</span>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs font-semibold text-gray-200 truncate" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <div class="w-16 bg-gray-700 rounded-full h-1.5 overflow-hidden"><div class="bg-emerald-400 h-1.5 rounded-full" style="width:${st.avg}%"></div></div>
+                                    <span class="text-[10px] text-gray-400 font-mono">${st.avg}% · ${st.done}/${st.n} kws</span>
+                                </div>
+                                <div class="text-[10px] text-emerald-400/80 mt-0.5">${m.kawasan.filter(isPksAktif).length} PKS aktif</div>
+                            </div>
+                            <div class="flex opacity-0 group-hover:opacity-100 transition">
+                                <button title="Tambah kawasan" onclick="event.stopPropagation(); addKawasan(${m.id})" class="text-gray-500 hover:text-indigo-300 px-1 text-sm">＋</button>
+                                <button title="Ubah nama mitra" onclick="event.stopPropagation(); renameMitra(${m.id})" class="text-gray-500 hover:text-indigo-300 px-1 text-xs">✏️</button>
+                                <button title="Hapus mitra" onclick="event.stopPropagation(); deleteMitra(${m.id})" class="text-gray-500 hover:text-rose-400 px-1 text-xs">🗑</button>
+                            </div>
+                        </div>`;
+                    if (m.expanded) {
+                        html += '<div class="mt-1 ml-3 pl-2 border-l border-gray-700 space-y-1">';
+                        m.kawasan.forEach(k => {
+                            const pr = calculateProgress(k);
+                            const act = k.id === activeKawasanId;
+                            const pks = pksStatus(k);
+                            html += `
+                            <div onclick="selectKawasan(${k.id})" class="cursor-pointer px-2 py-1.5 rounded-md border transition ${act ? 'bg-indigo-950/50 border-indigo-500/80 text-white' : 'border-transparent hover:bg-gray-700/40 text-gray-300'}">
+                                <div class="flex items-start gap-1">
+                                    <div class="flex-1 text-[11px] leading-snug" title="${escapeHtml(k.name)}">${escapeHtml(k.name)}</div>
+                                    <button title="Ubah nama kawasan" onclick="event.stopPropagation(); renameKawasan(${k.id})" class="text-gray-500 hover:text-indigo-300 text-[10px] shrink-0">✏️</button>
+                                </div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <div class="w-14 bg-gray-700 rounded-full h-1 overflow-hidden"><div class="bg-indigo-400 h-1 rounded-full" style="width:${pr}%"></div></div>
+                                    <span class="text-[10px] text-gray-500 font-mono">${pr}%</span>
+                                    <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded border ${pks.cls}">${pks.label}</span>
+                                </div>
+                            </div>`;
+                        });
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+            });
+            partnerListEl.innerHTML = html || '<p class="text-sm text-gray-500 italic text-center py-4">Belum ada mitra.</p>';
+
+            const allK = mitraList.flatMap(m => m.kawasan);
+            const doneK = allK.filter(k => calculateProgress(k) === 100).length;
+            document.getElementById('global-summary').textContent = `${mitraList.length} mitra · ${allK.length} kawasan · ${doneK} selesai · ${allK.filter(isPksAktif).length} PKS aktif`;
+        }
+
+        function renderWorkspace() {
+            const f = findKawasan(activeKawasanId);
+            if (!f) {
+                workspacePanel.innerHTML = `
+                    <div class="bg-gray-800 border border-gray-700 rounded-xl p-12 text-center shadow-xl my-auto">
+                        <h3 class="text-lg font-medium text-gray-300">Belum ada kawasan dipilih</h3>
+                        <p class="text-sm text-gray-500 mt-1 max-w-sm mx-auto">Pilih mitra di sidebar, lalu klik salah satu kawasan untuk membuka checklist dan timeline-nya.</p>
+                    </div>`;
+                return;
+            }
+            const { mitra, kw } = f;
+            const progress = calculateProgress(kw);
+            const completedTasks = kw.tasks.filter(t => t.completed).length;
+            const hasAB = kw.tasks.find(t => t.id === 14) && kw.tasks.find(t => t.id === 15);
+            const adjustedTotalTasks = kw.tasks.length - (hasAB ? 1 : 0);
+            const ms = mitraStats(mitra);
+            const pksInfo = pksStatus(kw);
+
+            workspacePanel.innerHTML = `
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="min-w-0">
+                        <div class="text-[11px] font-semibold text-indigo-400 uppercase tracking-widest">${escapeHtml(mitra.area)} › ${escapeHtml(mitra.name)}</div>
+                        <h2 class="text-xl font-bold text-gray-100 tracking-tight mt-0.5 break-words">${escapeHtml(kw.name)}
+                            <button onclick="renameKawasan(${kw.id})" title="Ubah nama kawasan" class="text-xs align-middle ml-1 text-gray-500 hover:text-indigo-300">✏️</button>
+                        </h2>
+                        <div class="text-[11px] text-gray-500 mt-1">Mitra ini: ${ms.done} dari ${ms.n} kawasan selesai · rata-rata ${ms.avg}%</div>
+                    </div>
+                    <div class="flex gap-2 shrink-0">
+                        <button onclick="deleteKawasan(${kw.id})" class="text-xs border border-gray-700 hover:bg-rose-950/40 hover:border-rose-800 text-gray-400 hover:text-rose-300 px-3 py-2 rounded-lg transition">Hapus Kawasan</button>
+                        <button onclick="resetActiveKawasan()" class="text-xs border border-gray-700 hover:bg-rose-950/40 hover:border-rose-800 text-gray-400 hover:text-rose-300 px-3 py-2 rounded-lg transition">Reset Checklist</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-xl">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Data Kawasan &amp; PKS</span>
+                        <span class="text-[11px] px-2 py-1 rounded-lg border ${pksInfo.cls}" title="${escapeHtml(pksInfo.hint)}">${pksInfo.label}${pksInfo.hint ? ' · ' + escapeHtml(pksInfo.hint) : ''}</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="sm:col-span-2">
+                            <label class="text-[11px] text-gray-400 uppercase">Nama Kawasan</label>
+                            <input type="text" value="${escapeHtml(kw.name)}" onchange="setKawasanName(this.value)"
+                                class="w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-gray-400 uppercase">PKS Aktif Sejak</label>
+                            <input type="date" value="${kw.pksStart || ''}" onchange="setPks('pksStart', this.value)" style="color-scheme:dark"
+                                class="w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-gray-400 uppercase">PKS Berakhir</label>
+                            <input type="date" value="${kw.pksEnd || ''}" onchange="setPks('pksEnd', this.value)" style="color-scheme:dark"
+                                class="w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center mt-3">
+                        <span class="text-[11px] text-gray-500">Kedua tanggal boleh diisi sebagian. Status PKS dihitung otomatis dari tanggal hari ini.</span>
+                        <button onclick="clearPks()" class="text-[11px] border border-gray-700 hover:border-gray-500 text-gray-400 px-3 py-1 rounded-lg">Kosongkan tanggal</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-xl">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Completion Status</span>
+                        <span class="text-lg font-mono font-bold text-indigo-400">${progress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div class="bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full transition-all duration-500 ease-out" style="width: ${progress}%"></div>
+                    </div>
+                    <div class="text-[11px] text-gray-400 mt-2 text-right">${completedTasks} of ${adjustedTotalTasks} steps completed</div>
+                </div>
+
+                ${renderTimeline(kw)}
+
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow-xl">
+                    <form id="task-form" onsubmit="addCustomTask(event)" class="flex gap-2">
+                        <input type="text" id="task-input" placeholder="Tambah sub-task atau catatan untuk kawasan ini..."
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-xs focus:outline-none focus:border-indigo-500 text-white placeholder-gray-500" required>
+                        <button type="submit" class="bg-indigo-600/90 hover:bg-indigo-500 text-white font-medium text-xs px-4 py-2 rounded-lg transition shrink-0">+ Add Custom Step</button>
+                    </form>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden">
+                    <div class="p-3 border-b border-gray-700">
+                        <h3 class="text-xs font-semibold tracking-wider text-gray-400 uppercase">Interactive Operational Workflow Steps</h3>
+                    </div>
+                    <ul class="divide-y divide-gray-700/60">
+                        ${kw.tasks.map(task => {
+                            const isBranch = task.text.includes("↳");
+                            return `
+                                <li class="flex items-start p-3.5 hover:bg-gray-700/20 transition duration-150 gap-3 ${task.completed ? 'opacity-35' : ''} ${isBranch ? 'bg-gray-900/30 pl-8' : ''}">
+                                    <input type="checkbox" ${task.completed ? 'checked' : ''}
+                                        class="w-4 h-4 mt-0.5 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 cursor-pointer"
+                                        onclick="toggleTask(${task.id})">
+                                    <span class="flex-1 text-sm ${isBranch ? 'text-gray-300 font-mono text-xs' : 'text-gray-200'} transition-all cursor-pointer select-none ${task.completed ? 'line-through text-gray-500' : ''}" onclick="toggleTask(${task.id})">
+                                        ${escapeHtml(task.text)}
+                                        ${!task.isDefault ? '<span class="ml-2 text-[10px] bg-indigo-950 text-indigo-400 border border-indigo-800 px-1.5 py-0.5 rounded font-medium">Custom Step</span>' : ''}
+                                    </span>
+                                    ${!task.isDefault ? `<button onclick="deleteCustomTask(${task.id})" class="text-gray-500 hover:text-rose-400 p-0.5 transition">🗑</button>` : ''}
+                                </li>`;
+                        }).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        function render() { renderSidebar(); renderWorkspace(); }
+
+        // ===== Mitra & Kawasan handlers =====
+        partnerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = partnerInput.value.trim();
+            if (!name) return;
+            const kw = newKawasan('Kawasan 1');
+            const m = { id: uid(), name: name, area: partnerAreaEl.value, expanded: true, kawasan: [kw] };
+            mitraList.push(m);
+            activeKawasanId = kw.id;
+            partnerInput.value = '';
+            saveToStorage(); render();
+        });
+
+        window.toggleMitra = function(id) {
+            const m = mitraList.find(x => x.id === id); if (!m) return;
+            m.expanded = !m.expanded; saveToStorage(); renderSidebar();
+        };
+        window.setAllExpanded = function(v) { mitraList.forEach(m => m.expanded = v); saveToStorage(); renderSidebar(); };
+        window.selectKawasan = function(id) { activeKawasanId = id; saveToStorage(); render(); };
+
+        window.addKawasan = function(mitraId) {
+            const m = mitraList.find(x => x.id === mitraId); if (!m) return;
+            const name = prompt('Nama kawasan baru untuk ' + m.name + ':');
+            if (!name || !name.trim()) return;
+            const kw = newKawasan(name.trim());
+            m.kawasan.push(kw); m.expanded = true; activeKawasanId = kw.id;
+            saveToStorage(); render();
+        };
+        window.renameMitra = function(id) {
+            const m = mitraList.find(x => x.id === id); if (!m) return;
+            const name = prompt('Ubah nama mitra:', m.name);
+            if (!name || !name.trim()) return;
+            m.name = name.trim(); saveToStorage(); render();
+        };
+        window.renameKawasan = function(id) {
+            const f = findKawasan(id); if (!f) return;
+            const name = prompt('Ubah nama kawasan:', f.kw.name);
+            if (!name || !name.trim()) return;
+            f.kw.name = name.trim(); saveToStorage(); render();
+        };
+        window.setKawasanName = function(v) {
+            const kw = activeKw(); if (!kw) return;
+            kw.name = v.trim() || kw.name;
+            saveToStorage(); render();
+        };
+        window.setPks = function(field, v) {
+            const kw = activeKw(); if (!kw) return;
+            kw[field] = v;
+            saveToStorage(); render();
+        };
+        window.clearPks = function() {
+            const kw = activeKw(); if (!kw) return;
+            kw.pksStart = ''; kw.pksEnd = '';
+            saveToStorage(); render();
+        };
+        window.deleteMitra = function(id) {
+            const m = mitraList.find(x => x.id === id); if (!m) return;
+            if (!confirm(`Hapus mitra "${m.name}" beserta ${m.kawasan.length} kawasan di dalamnya? Semua progres akan hilang.`)) return;
+            mitraList = mitraList.filter(x => x.id !== id);
+            if (!findKawasan(activeKawasanId)) {
+                const first = mitraList.find(x => x.kawasan.length);
+                activeKawasanId = first ? first.kawasan[0].id : null;
+            }
+            saveToStorage(); render();
+        };
+        window.deleteKawasan = function(id) {
+            const f = findKawasan(id); if (!f) return;
+            if (!confirm(`Hapus kawasan "${f.kw.name}"? Progres checklist dan timeline-nya akan hilang.`)) return;
+            f.mitra.kawasan = f.mitra.kawasan.filter(k => k.id !== id);
+            if (activeKawasanId === id) {
+                activeKawasanId = f.mitra.kawasan[0] ? f.mitra.kawasan[0].id : null;
+            }
+            saveToStorage(); render();
+        };
+        window.resetActiveKawasan = function() {
+            const kw = activeKw(); if (!kw) return;
+            if (!confirm('Reset checklist kawasan ini ke template awal? (Progres dan custom step dihapus. Timeline tidak berubah.)')) return;
+            kw.tasks = generateDefaultTasks();
+            saveToStorage(); render();
+        };
+
+        // ===== Checklist handlers =====
+        window.toggleTask = function(taskId) {
+            const kw = activeKw(); if (!kw) return;
+            const cur = kw.tasks.find(t => t.id === taskId); if (!cur) return;
+            const next = !cur.completed;
+            kw.tasks = kw.tasks.map(t => {
+                if (t.id === taskId) return { ...t, completed: next };
+                if (taskId === 14 && next && t.id === 15) return { ...t, completed: false };
+                if (taskId === 15 && next && t.id === 14) return { ...t, completed: false };
+                return t;
+            });
+            saveToStorage(); render();
+        };
+        window.addCustomTask = function(e) {
+            e.preventDefault();
+            const kw = activeKw(); if (!kw) return;
+            const input = document.getElementById('task-input');
+            const text = input.value.trim(); if (!text) return;
+            kw.tasks.push({ id: uid(), text: text, completed: false, isDefault: false });
+            saveToStorage(); render();
+        };
+        window.deleteCustomTask = function(taskId) {
+            const kw = activeKw(); if (!kw) return;
+            kw.tasks = kw.tasks.filter(t => t.id !== taskId);
+            saveToStorage(); render();
+        };
+
+        function renderTimeline(project) {
+            const tl = project.timeline || [];
+            const cols = tl.map((st, i) => {
+                const c = STAGE_STATUS[st.status].color;
+                const pending = st.status === 'pending';
+                const left = i > 0 ? `<div style="position:absolute;left:0;top:50%;width:50%;height:3px;margin-top:-1.5px;background:${c}"></div>` : '';
+                const right = i < tl.length - 1 ? `<div style="position:absolute;right:0;top:50%;width:50%;height:3px;margin-top:-1.5px;background:${c}"></div>` : '';
+                const date = formatStageDate(st.date);
+                return `
+                    <div style="min-width:140px;width:140px;flex:1 0 140px" class="text-center">
+                        <div style="position:relative;height:28px">
+                            ${left}${right}
+                            <button onclick="cycleStage(${st.id})" title="Klik untuk ganti status (${STAGE_STATUS[st.status].label})"
+                                style="position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:9999px;background:${c};border:2px solid rgba(0,0,0,.35);cursor:pointer;z-index:1"
+                                class="hover:scale-125 transition"></button>
+                        </div>
+                        <div onclick="openStageEditor(${st.id})" class="cursor-pointer px-1 pt-2 pb-1 rounded-lg hover:bg-gray-700/40 transition" title="Klik untuk edit tahap & tanggal">
+                            <div class="text-[11px] font-semibold text-gray-100 uppercase leading-tight">${escapeHtml(st.actor)}</div>
+                            <div class="text-[11px] uppercase leading-tight mt-2.5" style="color:${c};opacity:${pending ? .6 : .9}">${escapeHtml(st.name)}</div>
+                            <div class="text-[11px] leading-tight mt-1 font-mono" style="color:${c};opacity:${pending ? .6 : .9}">${date ? '(' + date + ')' : '<span class="text-gray-600">+ set tanggal</span>'}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            const done = tl.filter(t => t.status === 'done').length;
+            const active = tl.filter(t => t.status === 'active').length;
+
+            return `
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-xl">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                        <div>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Transaction Timeline</span>
+                            <div class="text-[11px] text-gray-500 mt-0.5">${done} selesai · ${active} dalam proses · ${tl.length} tahap. Klik lingkaran = ganti status, klik teks = edit nama / tanggal.</div>
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            <span class="hidden sm:flex items-center gap-2 text-[10px] text-gray-400">
+                                <span class="flex items-center gap-1"><i style="background:#4ade80" class="inline-block w-2.5 h-2.5 rounded-full"></i>Selesai</span>
+                                <span class="flex items-center gap-1"><i style="background:#ef4444" class="inline-block w-2.5 h-2.5 rounded-full"></i>Dalam Proses</span>
+                                <span class="flex items-center gap-1"><i style="background:#9ca3af" class="inline-block w-2.5 h-2.5 rounded-full"></i>Pending</span>
+                            </span>
+                            <button onclick="addStage()" class="text-xs bg-indigo-600/90 hover:bg-indigo-500 text-white font-medium px-3 py-1.5 rounded-lg transition">+ Tahap</button>
+                            <button onclick="resetTimeline()" class="text-xs border border-gray-700 hover:border-rose-800 hover:text-rose-300 text-gray-400 px-3 py-1.5 rounded-lg transition">Reset</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto pb-2">
+                        <div class="flex" style="min-width:max-content">${cols || '<p class="text-sm text-gray-500 italic p-4">Belum ada tahap. Klik "+ Tahap".</p>'}</div>
+                    </div>
+                </div>`;
+        }
+
+        function activeTimeline() {
+            const kw = activeKw();
+            return kw ? kw.timeline : null;
+        }
+
+        window.cycleStage = function(id) {
+            const tl = activeTimeline(); if (!tl) return;
+            const st = tl.find(s => s.id === id); if (!st) return;
+            st.status = STAGE_ORDER[(STAGE_ORDER.indexOf(st.status) + 1) % STAGE_ORDER.length];
+            if (st.status === 'done' && !st.date) st.date = nowLocalISO();
+            saveToStorage(); renderWorkspace();
+        };
+
+        let editingStageId = null;
+        window.openStageEditor = function(id) {
+            const tl = activeTimeline(); if (!tl) return;
+            const st = tl.find(s => s.id === id); if (!st) return;
+            editingStageId = id;
+            document.getElementById('stg-actor').value = st.actor;
+            document.getElementById('stg-name').value = st.name;
+            document.getElementById('stg-status').value = st.status;
+            document.getElementById('stg-date').value = st.date || '';
+            document.getElementById('stage-modal').classList.remove('hidden');
+            document.getElementById('stg-name').focus();
+        };
+        window.closeStageEditor = function() {
+            document.getElementById('stage-modal').classList.add('hidden');
+            editingStageId = null;
+        };
+        window.saveStage = function() {
+            const tl = activeTimeline(); if (!tl) return;
+            const st = tl.find(s => s.id === editingStageId); if (!st) return;
+            st.actor = document.getElementById('stg-actor').value.trim();
+            st.name = document.getElementById('stg-name').value.trim() || 'Tahap baru';
+            st.status = document.getElementById('stg-status').value;
+            st.date = document.getElementById('stg-date').value;
+            if (st.status === 'done' && !st.date) st.date = nowLocalISO();
+            closeStageEditor(); saveToStorage(); renderWorkspace();
+        };
+        window.clearStageDate = function() { document.getElementById('stg-date').value = ''; };
+        window.setStageNow = function() { document.getElementById('stg-date').value = nowLocalISO(); };
+        window.deleteStage = function() {
+            const p = activeKw(); if (!p) return;
+            if (!confirm('Hapus tahap ini dari timeline?')) return;
+            p.timeline = p.timeline.filter(s => s.id !== editingStageId);
+            closeStageEditor(); saveToStorage(); renderWorkspace();
+        };
+        window.moveStage = function(dir) {
+            const tl = activeTimeline(); if (!tl) return;
+            const i = tl.findIndex(s => s.id === editingStageId);
+            const j = i + dir;
+            if (i < 0 || j < 0 || j >= tl.length) return;
+            [tl[i], tl[j]] = [tl[j], tl[i]];
+            saveToStorage(); renderWorkspace();
+        };
+        window.addStage = function() {
+            const tl = activeTimeline(); if (!tl) return;
+            const st = { id: uid(), actor: 'ACTOR', name: 'Tahap Baru', status: 'pending', date: '' };
+            tl.push(st);
+            saveToStorage(); renderWorkspace(); openStageEditor(st.id);
+        };
+        window.resetTimeline = function() {
+            const p = activeKw(); if (!p) return;
+            if (!confirm('Reset timeline ke template awal (semua Pending, tanpa tanggal)?')) return;
+            p.timeline = generateDefaultTimeline(false);
+            saveToStorage(); renderWorkspace();
+        };
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStageEditor(); });
+
+
+        // Mulai: buka mitra yang berisi kawasan aktif
+        (function () { const f = findKawasan(activeKawasanId); if (f) f.mitra.expanded = true; })();
+        render();
+    </script>
+</body>
+</html>
